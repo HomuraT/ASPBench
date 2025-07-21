@@ -1,0 +1,56 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Python packaging artifacts
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Jupyter Notebook checkpoints
+# This will ignore all directories named .ipynb_checkpoints/ at any level
+.ipynb_checkpoints/
+
+# IDE specific files
+# PyCharm
+.idea/
+# VSCode
+.vscode/
+.cursor/
+
+# Logs
+logs/
+src/logs/ # Be specific if needed, or use a more general pattern below
+# */logs/  # Ignores any directory named 'logs' one level deep
+# **/logs/ # Ignores any directory named 'logs' at any depth (more robust)
+*.log
+
+# Slurm output
+slurm_output/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+datasets/a_symtex_task_answerset_generation/
+datasets/a_symtex_task_answerset_selection/
+datasets/a_symtex_task_fact_state_querying/
+datasets/conceptnet/
+datasets/symtex_dlv2/
+datasets/symtex_final/
+datasets/symtex_select_from_filter_data/
+experiments/answer_set_decision/
+experiments/answer_set_generation/
+experiments/fact_state_querying/
+experiments/raw_data_statistic/
+experiments/symtex_statistic/
+results/answer_set_decision/
+results/answer_set_generation/
+results/fact_state_querying/
+datasets/classic_problems_clingo_syntax/

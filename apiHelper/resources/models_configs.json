@@ -1,0 +1,7 @@
+{
+  "openai_gpt_4o": {
+    "api_custom_name": "openai",
+    "model_name": "gpt-4o",
+    "params": {}
+  }
+}

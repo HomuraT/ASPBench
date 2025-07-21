@@ -1,0 +1,9 @@
+fastapi
+pydantic
+uvicorn
+langchain
+langchain-core
+langchain-community
+langchain-openai>=0.0.10
+openai
+anthropic

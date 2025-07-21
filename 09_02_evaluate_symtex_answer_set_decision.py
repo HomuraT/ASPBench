@@ -1,0 +1,197 @@
+import argparse
+import os
+import sys
+import logging
+import time
+import json # Added for potential metrics saving
+
+# Ensure the src directory is in the Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
+# Add src to sys.path if needed, assuming the script is run from the root
+src_path = os.path.join(project_root, 'src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
+
+# --- Setup Logging ---
+log_directory = "logs"
+os.makedirs(log_directory, exist_ok=True)
+# Use a specific log file name for this script
+main_log_file = os.path.join(log_directory, f"{os.path.splitext(os.path.basename(__file__))[0]}.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(main_log_file),
+        logging.StreamHandler() # Keep console output
+    ]
+)
+logger = logging.getLogger(__name__) # Get logger for this main script
+
+
+# --- Import necessary modules after path setup ---
+try:
+    # Import the framework for Answer Set Decision
+    from src.symtex_evaluation.answer_set_selection import AnswerSetDecisionFramework
+    # Import the evaluation function for Answer Set Decision (assuming this exists or will be created)
+    # Placeholder: If the evaluation script/function has a different name, update this import.
+    from src.symtex_evaluation.evaluate_answer_set_decision import run_evaluation_answer_set
+except ImportError as e:
+    logger.critical(f"Failed to import necessary modules. Ensure 'src' directory is accessible and contains the required scripts (AnswerSetDecisionFramework, evaluate_answer_set_decision). Error: {e}", exc_info=True)
+    sys.exit(1)
+except Exception as e:
+    logger.critical(f"An unexpected error occurred during module imports: {e}", exc_info=True)
+    sys.exit(1)
+
+
+def main():
+    """
+    Main function to run the Answer Set Decision
+    processing and evaluation pipeline.
+    """
+    start_pipeline_time = time.time() # Time the entire pipeline
+    pipeline_successful = False # Flag to track success
+
+    parser = argparse.ArgumentParser(description="Run Answer Set Decision and Evaluation Pipeline.")
+    parser.add_argument("--input_file",
+                        default="datasets/SymTex/answerset_selection_textual.jsonl", # Default input for this task
+                        type=str,
+                        help="Path to the input JSONL dataset file for answer set decision.")
+    parser.add_argument("--api_name",
+                        default="ppinfra_deepseek_r1", # Default model, can be changed
+                        type=str,
+                        help="Name of the model/API configuration to use (e.g., 'mmm_gpt_4o_mini').")
+    parser.add_argument("--json_parsing_model_name",
+                        default="mmm_gpt_4o_mini", # 设置默认值
+                        type=str,
+                        help="Name of the model/API used specifically for JSON parsing.")
+    parser.add_argument("--output_dir",
+                        default="experiments/answer_set_decision/w_few_shot/", # Default output dir for this task
+                        type=str,
+                        help="Path to the output directory for the results JSONL file.")
+    parser.add_argument("--threads", type=int, default=1, help="Number of worker threads for processing.")
+    parser.add_argument("--save_interval", type=int, default=1, help="Save results every N items.")
+
+    args = parser.parse_args()
+
+    logger.info("--- Starting Answer Set Decision Pipeline ---") # Updated task name
+    logger.info(f"Input File: {args.input_file}")
+    logger.info(f"Model API Name: {args.api_name}")
+    logger.info(f"JSON Parsing Model Name: {args.json_parsing_model_name}") # 记录新参数
+    logger.info(f"Output Directory: {args.output_dir}")
+    logger.info(f"Worker Threads: {args.threads}")
+    logger.info(f"Save Interval: {args.save_interval}")
+
+    # --- Construct Final Output Path ---
+    try:
+        input_basename = os.path.splitext(os.path.basename(args.input_file))[0]
+        final_output_filename = f"{input_basename}_{args.api_name}.jsonl"
+        final_output_path = os.path.join(args.output_dir, final_output_filename)
+        logger.info(f"Final Results Path: {final_output_path}")
+
+        # Create output directory if it doesn't exist
+        output_directory = args.output_dir
+        if output_directory:
+            try:
+                os.makedirs(output_directory, exist_ok=True)
+                logger.info(f"Ensured output directory exists: {output_directory}")
+            except OSError as e:
+                logger.error(f"Could not create output directory {output_directory}: {e}. Aborting.")
+                return
+        else:
+            logger.warning("Output directory path is empty. Results will be saved in the current working directory.")
+
+    except OSError as e:
+        logger.error(f"Could not create output directory or access paths: {e}. Aborting.")
+        return # Exit main function
+    except Exception as e:
+        logger.critical(f"Error during path setup: {e}. Aborting.", exc_info=True)
+        return
+
+    # --- Wrap Core Logic in Try/Except/Finally ---
+    try:
+        # --- 2. Run Answer Set Decision Processing ---
+        processing_start_time = time.time()
+        try:
+            logger.info(f"Initializing AnswerSetDecisionFramework with model: {args.api_name} and JSON parser model: {args.json_parsing_model_name}...") # Updated framework name
+            framework = AnswerSetDecisionFramework(
+                model_name=args.api_name,
+                json_parsing_model_name=args.json_parsing_model_name
+            )
+            logger.info("Framework initialized successfully.")
+
+            logger.info(f"Starting dataset processing for {args.input_file} -> {final_output_path}...")
+            framework.process_dataset(
+                input_file_path=args.input_file,
+                output_file_path=final_output_path,
+                num_threads=args.threads,
+                save_interval=args.save_interval
+            )
+            processing_duration = time.time() - processing_start_time
+            logger.info(f"Dataset processing finished. Time taken: {processing_duration:.2f} seconds.")
+
+        except FileNotFoundError as e:
+             logger.critical(f"Input file not found during processing step: {e}")
+             raise # Reraise to be caught by outer block
+        except RuntimeError as e:
+            logger.critical(f"Framework initialization or processing failed: {e}. Exiting.", exc_info=True)
+            raise # Reraise
+        except Exception as e:
+             logger.critical(f"An unexpected error occurred during dataset processing: {e}", exc_info=True)
+             raise # Reraise
+
+        # --- 3. Run Evaluation ---
+        evaluation_start_time = time.time()
+        logger.info(f"Starting evaluation of results file: {final_output_path}")
+        try:
+            # Call the specific evaluation function for this task
+            evaluation_metrics = run_evaluation_answer_set(results_file_path=final_output_path) # Updated evaluation function call
+
+            if evaluation_metrics:
+                logger.info("Evaluation completed successfully (details logged by evaluation script).")
+                # Optional: Save metrics
+                metrics_output_path = os.path.splitext(final_output_path)[0] + "_metrics.json"
+                try:
+                    with open(metrics_output_path, 'w', encoding='utf-8') as f:
+                         json.dump(evaluation_metrics, f, indent=4, ensure_ascii=False)
+                    logger.info(f"Evaluation metrics saved to {metrics_output_path}")
+                except IOError as e:
+                    logger.error(f"Failed to save evaluation metrics to {metrics_output_path}: {e}")
+                except TypeError as e:
+                     logger.error(f"Failed to serialize evaluation metrics to JSON: {e}")
+
+            else:
+                logger.error("Evaluation script reported failure (check logs above and evaluation script logs).")
+
+            evaluation_duration = time.time() - evaluation_start_time
+            logger.info(f"Evaluation finished. Time taken: {evaluation_duration:.2f} seconds.")
+
+            # If we reach here without eval metrics being None/empty, consider pipeline successful
+            if evaluation_metrics:
+                pipeline_successful = True
+
+        except FileNotFoundError:
+             # This might be redundant if run_evaluation_answer_set handles it, but catch defensively
+             logger.error(f"Results file {final_output_path} not found for evaluation step.")
+             raise # Reraise
+        except Exception as e:
+            logger.critical(f"An unexpected error occurred during the evaluation step: {e}", exc_info=True)
+            raise # Reraise
+
+    except Exception as e:
+        # Catch errors raised from the processing or evaluation blocks
+        logger.critical(f"A critical error occurred in the main pipeline execution: {e}", exc_info=True)
+        # pipeline_successful remains False
+
+    finally:
+        # This block executes regardless of success or failure
+        total_duration = time.time() - start_pipeline_time
+        status = "Successfully" if pipeline_successful else "with ERRORS"
+        logger.info(f"--- Pipeline Finished {status} --- Total time: {total_duration:.2f} seconds.")
+        logging.shutdown()
+
+
+if __name__ == "__main__":
+    main() 

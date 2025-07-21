@@ -1,0 +1,17 @@
+numpy
+networkx
+matplotlib
+PyYAML
+tqdm
+scipy
+pandas
+seaborn
+requests
+orjson
+faker
+Jinja2
+scikit-learn
+clingo
+clingo-lp
+openpyxl
+tiktoken

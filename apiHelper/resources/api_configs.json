@@ -1,0 +1,10 @@
+{
+  "openai": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "null"
+  },
+  "local": {
+    "base_url": "http://127.0.0.1:5824/v1",
+    "api_key": "null"
+  }
+}

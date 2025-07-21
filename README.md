@@ -1,6 +1,6 @@
 # ASPBench: Can LLMs Solve ASP Problems? Insights from a Benchmarking Study
 
-This is the code for the paper "Can LLMs Solve ASP Problems? Insights from a Benchmarking Study".
+This is the code for the paper "Can LLMs Solve ASP Problems? Insights from a Benchmarking Study", accepted to **KR2025** (22nd International Conference on Principles of Knowledge Representation and Reasoning) - In the Wild Track.
 
 # Install Enviroment
 
